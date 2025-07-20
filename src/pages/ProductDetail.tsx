@@ -1,143 +1,125 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarContent, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ProductGallery } from '@/components/product/ProductGallery';
+import { ProductInfo } from '@/components/product/ProductInfo';
+import { BookingCard } from '@/components/product/BookingCard';
+import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/hooks/useAuth';
+import { api, Tool, Review } from '@/lib/api';
+import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
-// Данные инструмента (обычно получаются из API)
-const toolData = {
-  id: 1,
-  name: 'Перфоратор Bosch GSH 16-28',
-  brand: 'Bosch',
-  model: 'GSH 16-28',
-  category: 'Электроинструмент',
-  subcategory: 'Перфораторы',
-  price: 1200,
-  images: [
-    '/img/5e130715-b755-4ab5-82af-c9e448995766.jpg',
-    '/img/cc0687bd-1892-4c49-8820-2d326de6668b.jpg',
-    '/img/a1f08a16-886e-4eb0-836e-611ef0c78857.jpg'
-  ],
-  available: true,
-  rating: 4.8,
-  reviews: 124,
-  description: 'Профессиональный перфоратор Bosch GSH 16-28 предназначен для интенсивных работ по сверлению и долблению в бетоне, кирпиче и природном камне. Оснащен системой SDS-Max для быстрой смены оснастки.',
-  fullDescription: `Перфоратор Bosch GSH 16-28 - это мощный профессиональный инструмент, созданный для самых сложных задач в строительстве и ремонте. Благодаря высокой мощности 1750 Вт и энергии удара 41 Дж, он легко справляется с бетоном, кирпичом и другими твёрдыми материалами.
 
-Особенности:
-- Система SDS-Max для быстрой смены оснастки без дополнительных инструментов
-- Антивибрационная система (AVT) снижает вибрацию до 50%
-- Электронная регулировка частоты ударов
-- Автоматическое отключение при заклинивании оснастки
-- Светодиодная подсветка рабочей зоны
-- Эргономичная конструкция с дополнительной рукояткой
-
-Технические характеристики:
-- Мощность: 1750 Вт
-- Энергия удара: 41 Дж
-- Частота ударов: 1400-2840 уд/мин
-- Патрон: SDS-Max
-- Максимальный диаметр сверления в бетоне: 50 мм
-- Вес: 11,1 кг
-- Уровень шума: 107 дБ(A)
-- Уровень вибрации: 12 м/с²`,
-  specifications: {
-    power: '1750W',
-    weight: '11.1кг',
-    voltage: '230V',
-    chuckType: 'SDS-Max',
-    maxDrillDiameter: '50мм',
-    impactEnergy: '41J',
-    impactRate: '1400-2840 уд/мин',
-    noiseLevel: '107 дБ(A)',
-    vibrationLevel: '12 м/с²'
-  },
-  features: [
-    'SDS-Max патрон',
-    'Антивибрационная система AVT',
-    'Регулировка оборотов',
-    'Светодиодная подсветка',
-    'Автоотключение при заклинивании',
-    'Эргономичная рукоятка',
-    'Кейс для хранения'
-  ],
-  included: [
-    'Перфоратор Bosch GSH 16-28',
-    'Дополнительная рукоятка',
-    'Ограничитель глубины',
-    'Смазка для патрона',
-    'Пластиковый кейс',
-    'Инструкция по эксплуатации'
-  ],
-  inStock: 5,
-  rentalPeriods: [
-    { days: 1, price: 1200, discount: 0 },
-    { days: 3, price: 3200, discount: 11 },
-    { days: 7, price: 7000, discount: 17 },
-    { days: 14, price: 12600, discount: 25 },
-    { days: 30, price: 24000, discount: 33 }
-  ]
-};
-
-const reviews = [
-  {
-    id: 1,
-    user: 'Алексей Петров',
-    rating: 5,
-    date: '2024-01-15',
-    text: 'Отличный перфоратор! Мощный, надёжный. Пробивает бетон как масло. Антивибрационная система действительно работает - руки не устают даже после долгой работы.',
-    helpful: 12
-  },
-  {
-    id: 2,
-    user: 'Марина Сидорова',
-    rating: 5,
-    date: '2024-01-10',
-    text: 'Арендовала для ремонта квартиры. Очень довольна качеством и сервисом. Инструмент в отличном состоянии, работает тихо для своей мощности.',
-    helpful: 8
-  },
-  {
-    id: 3,
-    user: 'Дмитрий Иванов',
-    rating: 4,
-    date: '2024-01-05',
-    text: 'Хороший инструмент для профессиональных задач. Единственный минус - тяжеловат, но это компенсируется мощностью и качеством работы.',
-    helpful: 5
-  }
-];
 
 export default function ProductDetail() {
-  const [selectedImage, setSelectedImage] = useState(0);
-  const [startDate, setStartDate] = useState<Date>();
-  const [endDate, setEndDate] = useState<Date>();
-  const [rentalDays, setRentalDays] = useState(1);
-  const [showReviewForm, setShowReviewForm] = useState(false);
-  const [quantity, setQuantity] = useState(1);
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
+  const { user } = useAuth();
+  
+  const [tool, setTool] = useState<Tool | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
-  const selectedPeriod = toolData.rentalPeriods.find(p => p.days === rentalDays) || toolData.rentalPeriods[0];
-  const totalPrice = selectedPeriod.price * quantity;
-  const savings = (toolData.price * rentalDays * quantity) - totalPrice;
+  useEffect(() => {
+    if (!id) {
+      navigate('/catalog');
+      return;
+    }
+    
+    loadToolData();
+  }, [id, navigate]);
 
-  const handleAddToCart = () => {
-    console.log('Add to cart:', {
-      tool: toolData.id,
-      startDate,
-      endDate,
-      days: rentalDays,
-      quantity,
-      price: totalPrice
+  const loadToolData = async () => {
+    if (!id) return;
+    
+    try {
+      const [toolResponse, reviewsResponse] = await Promise.all([
+        api.getTool(id),
+        api.getToolReviews(id)
+      ]);
+      
+      setTool(toolResponse.data);
+      setReviews(reviewsResponse.data.reviews);
+    } catch (error) {
+      console.error('Failed to load tool data:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось загрузить информацию об инструменте',
+        variant: 'destructive'
+      });
+      navigate('/catalog');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddToCart = (data: {
+    startDate?: Date;
+    endDate?: Date;
+    days: number;
+    quantity: number;
+    totalPrice: number;
+  }) => {
+    if (!tool) return;
+    
+    addToCart({
+      id: tool._id,
+      name: tool.name,
+      price: tool.price,
+      image: tool.images[0] || '/img/5e130715-b755-4ab5-82af-c9e448995766.jpg',
+      category: tool.category,
+      duration: data.days
     });
+    
+    toast({
+      title: 'Добавлено в корзину',
+      description: `${tool.name} добавлен в корзину на ${data.days} дней`
+    });
+  };
+
+  const rentalPeriods = [
+    { days: 1, price: tool?.price || 0, discount: 0 },
+    { days: 3, price: Math.round((tool?.price || 0) * 3 * 0.89), discount: 11 },
+    { days: 7, price: Math.round((tool?.price || 0) * 7 * 0.83), discount: 17 },
+    { days: 14, price: Math.round((tool?.price || 0) * 14 * 0.75), discount: 25 },
+    { days: 30, price: Math.round((tool?.price || 0) * 30 * 0.67), discount: 33 }
+  ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Icon name="Loader2" className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Загрузка...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tool) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Инструмент не найден</h1>
+          <Button onClick={() => navigate('/catalog')}>
+            Вернуться к каталогу
+          </Button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -172,7 +154,7 @@ export default function ProductDetail() {
             <Icon name="ChevronRight" className="h-4 w-4 text-gray-400" />
             <a href="/catalog" className="text-gray-600 hover:text-blue-600">Каталог</a>
             <Icon name="ChevronRight" className="h-4 w-4 text-gray-400" />
-            <span className="text-gray-900">{toolData.name}</span>
+            <span className="text-gray-900">{tool.name}</span>
           </nav>
         </div>
       </div>
@@ -181,240 +163,33 @@ export default function ProductDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Images */}
           <div className="lg:col-span-2">
-            <div className="space-y-4">
-              {/* Main Image */}
-              <div className="relative">
-                <img 
-                  src={toolData.images[selectedImage]} 
-                  alt={toolData.name}
-                  className="w-full h-96 object-cover rounded-lg shadow-lg"
-                />
-                <div className="absolute top-4 left-4 space-y-2">
-                  <Badge variant="outline" className="bg-white">
-                    {toolData.subcategory}
-                  </Badge>
-                  {toolData.available && (
-                    <Badge className="bg-green-100 text-green-800">
-                      В наличии
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              {/* Thumbnail Images */}
-              <div className="flex space-x-2">
-                {toolData.images.map((image, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImage(index)}
-                    className={`w-20 h-20 rounded-lg overflow-hidden border-2 ${
-                      selectedImage === index ? 'border-blue-500' : 'border-gray-200'
-                    }`}
-                  >
-                    <img 
-                      src={image} 
-                      alt={`${toolData.name} ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
+            <ProductGallery
+              images={tool.images}
+              name={tool.name}
+              subcategory={tool.subcategory}
+              available={tool.status === 'available' && tool.inStock > 0}
+            />
           </div>
 
           {/* Right Column - Details & Booking */}
           <div className="space-y-6">
             {/* Product Info */}
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{toolData.name}</h1>
-              <p className="text-gray-600 mb-4">{toolData.brand} · {toolData.model}</p>
-              
-              <div className="flex items-center space-x-4 mb-4">
-                <div className="flex items-center space-x-1">
-                  <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Icon 
-                        key={i} 
-                        name="Star" 
-                        className={`h-4 w-4 ${
-                          i < Math.floor(toolData.rating) 
-                            ? 'text-yellow-400 fill-current' 
-                            : 'text-gray-300'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-sm font-medium">{toolData.rating}</span>
-                </div>
-                <span className="text-sm text-gray-600">({toolData.reviews} отзывов)</span>
-              </div>
-
-              <p className="text-gray-700 mb-6">{toolData.description}</p>
-
-              {/* Key Features */}
-              <div className="flex flex-wrap gap-2 mb-6">
-                {toolData.features.slice(0, 4).map((feature, index) => (
-                  <Badge key={index} variant="secondary">
-                    {feature}
-                  </Badge>
-                ))}
-              </div>
-            </div>
+            <ProductInfo
+              name={tool.name}
+              brand={tool.brand}
+              rating={tool.rating}
+              reviewCount={tool.reviewCount}
+              description={tool.description}
+              features={tool.features}
+            />
 
             {/* Booking Card */}
-            <Card className="sticky top-8">
-              <CardHeader>
-                <CardTitle className="text-xl">Забронировать</CardTitle>
-                <CardDescription>Выберите период аренды</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Rental Period */}
-                <div>
-                  <label className="text-sm font-medium text-gray-900 mb-2 block">
-                    Период аренды
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {toolData.rentalPeriods.map((period) => (
-                      <button
-                        key={period.days}
-                        onClick={() => setRentalDays(period.days)}
-                        className={`p-3 rounded-lg border-2 text-center transition-colors ${
-                          rentalDays === period.days
-                            ? 'border-blue-500 bg-blue-50 text-blue-600'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <div className="text-sm font-medium">
-                          {period.days} {period.days === 1 ? 'день' : 'дней'}
-                        </div>
-                        {period.discount > 0 && (
-                          <div className="text-xs text-green-600">
-                            -{period.discount}%
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Dates */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-900 mb-2 block">
-                      Дата начала
-                    </label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start">
-                          <Icon name="Calendar" className="h-4 w-4 mr-2" />
-                          {startDate ? format(startDate, 'dd.MM', { locale: ru }) : 'Выберите'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={startDate}
-                          onSelect={(date) => {
-                            setStartDate(date);
-                            if (date) {
-                              setEndDate(addDays(date, rentalDays));
-                            }
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-900 mb-2 block">
-                      Дата окончания
-                    </label>
-                    <Button variant="outline" className="w-full justify-start" disabled>
-                      <Icon name="Calendar" className="h-4 w-4 mr-2" />
-                      {endDate ? format(endDate, 'dd.MM', { locale: ru }) : 'Автоматически'}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Quantity */}
-                <div>
-                  <label className="text-sm font-medium text-gray-900 mb-2 block">
-                    Количество
-                  </label>
-                  <div className="flex items-center space-x-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      disabled={quantity <= 1}
-                    >
-                      <Icon name="Minus" className="h-4 w-4" />
-                    </Button>
-                    <span className="font-medium">{quantity}</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setQuantity(Math.min(toolData.inStock, quantity + 1))}
-                      disabled={quantity >= toolData.inStock}
-                    >
-                      <Icon name="Plus" className="h-4 w-4" />
-                    </Button>
-                    <span className="text-sm text-gray-600 ml-2">
-                      Доступно: {toolData.inStock}
-                    </span>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Price Summary */}
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Базовая цена</span>
-                    <span>{toolData.price * rentalDays * quantity}₽</span>
-                  </div>
-                  {savings > 0 && (
-                    <div className="flex justify-between text-green-600">
-                      <span>Скидка</span>
-                      <span>-{savings}₽</span>
-                    </div>
-                  )}
-                  <Separator />
-                  <div className="flex justify-between font-bold text-lg">
-                    <span>Итого</span>
-                    <span>{totalPrice}₽</span>
-                  </div>
-                  <p className="text-sm text-gray-600 text-center">
-                    {Math.round(totalPrice / rentalDays)}₽ за день
-                  </p>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="space-y-3">
-                  <Button 
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    onClick={handleAddToCart}
-                    disabled={!startDate || !toolData.available}
-                  >
-                    <Icon name="ShoppingCart" className="h-4 w-4 mr-2" />
-                    Добавить в корзину
-                  </Button>
-                  <Button variant="outline" className="w-full">
-                    <Icon name="Heart" className="h-4 w-4 mr-2" />
-                    В избранное
-                  </Button>
-                </div>
-
-                {/* Contact Info */}
-                <div className="bg-gray-50 rounded-lg p-4 text-center">
-                  <p className="text-sm text-gray-600 mb-2">Нужна консультация?</p>
-                  <Button variant="outline" size="sm">
-                    <Icon name="Phone" className="h-4 w-4 mr-2" />
-                    +7 (495) 123-45-67
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <BookingCard
+              price={tool.price}
+              inStock={tool.inStock}
+              rentalPeriods={rentalPeriods}
+              onAddToCart={handleAddToCart}
+            />
           </div>
         </div>
 
@@ -425,7 +200,7 @@ export default function ProductDetail() {
               <TabsTrigger value="description">Описание</TabsTrigger>
               <TabsTrigger value="specifications">Характеристики</TabsTrigger>
               <TabsTrigger value="included">Комплектация</TabsTrigger>
-              <TabsTrigger value="reviews">Отзывы ({toolData.reviews})</TabsTrigger>
+              <TabsTrigger value="reviews">Отзывы ({tool.reviewCount})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="description" className="mt-6">
@@ -433,7 +208,7 @@ export default function ProductDetail() {
                 <CardContent className="p-6">
                   <div className="prose max-w-none">
                     <div className="whitespace-pre-line text-gray-700">
-                      {toolData.fullDescription}
+                      {tool.fullDescription || tool.description}
                     </div>
                   </div>
                 </CardContent>
@@ -444,7 +219,7 @@ export default function ProductDetail() {
               <Card>
                 <CardContent className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(toolData.specifications).map(([key, value]) => (
+                    {Object.entries(tool.specifications).map(([key, value]) => (
                       <div key={key} className="flex justify-between py-2 border-b border-gray-100">
                         <span className="text-gray-600 capitalize">
                           {key.replace(/([A-Z])/g, ' $1').toLowerCase()}
@@ -461,7 +236,7 @@ export default function ProductDetail() {
               <Card>
                 <CardContent className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {toolData.included.map((item, index) => (
+                    {(tool.included || []).map((item, index) => (
                       <div key={index} className="flex items-center space-x-3">
                         <Icon name="Check" className="h-5 w-5 text-green-600" />
                         <span>{item}</span>
@@ -480,7 +255,7 @@ export default function ProductDetail() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="text-center">
                         <div className="text-4xl font-bold text-gray-900 mb-2">
-                          {toolData.rating}
+                          {tool.rating}
                         </div>
                         <div className="flex justify-center mb-2">
                           {[...Array(5)].map((_, i) => (
@@ -488,7 +263,7 @@ export default function ProductDetail() {
                               key={i} 
                               name="Star" 
                               className={`h-5 w-5 ${
-                                i < Math.floor(toolData.rating) 
+                                i < Math.floor(tool.rating) 
                                   ? 'text-yellow-400 fill-current' 
                                   : 'text-gray-300'
                               }`}
@@ -496,7 +271,7 @@ export default function ProductDetail() {
                           ))}
                         </div>
                         <p className="text-gray-600">
-                          Основано на {toolData.reviews} отзывах
+                          Основано на {tool.reviewCount} отзывах
                         </p>
                       </div>
                       <div className="space-y-2">
@@ -518,18 +293,18 @@ export default function ProductDetail() {
                 {/* Individual Reviews */}
                 <div className="space-y-4">
                   {reviews.map((review) => (
-                    <Card key={review.id}>
+                    <Card key={review._id}>
                       <CardContent className="p-6">
                         <div className="flex items-start space-x-4">
                           <Avatar>
                             <AvatarFallback>
-                              {review.user.split(' ').map(n => n[0]).join('')}
+                              {review.customerId.slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-2">
                               <div>
-                                <h4 className="font-semibold">{review.user}</h4>
+                                <h4 className="font-semibold">Пользователь</h4>
                                 <div className="flex items-center space-x-2">
                                   <div className="flex">
                                     {[...Array(5)].map((_, i) => (
@@ -545,16 +320,16 @@ export default function ProductDetail() {
                                     ))}
                                   </div>
                                   <span className="text-sm text-gray-600">
-                                    {format(new Date(review.date), 'dd MMMM yyyy', { locale: ru })}
+                                    {format(new Date(review.createdAt), 'dd MMMM yyyy', { locale: ru })}
                                   </span>
                                 </div>
                               </div>
                             </div>
-                            <p className="text-gray-700 mb-3">{review.text}</p>
+                            <p className="text-gray-700 mb-3">{review.comment}</p>
                             <div className="flex items-center space-x-4">
                               <Button variant="ghost" size="sm">
                                 <Icon name="ThumbsUp" className="h-4 w-4 mr-1" />
-                                Полезно ({review.helpful})
+                                Полезно ({review.helpfulVotes})
                               </Button>
                               <Button variant="ghost" size="sm">
                                 <Icon name="Flag" className="h-4 w-4 mr-1" />
@@ -569,50 +344,46 @@ export default function ProductDetail() {
                 </div>
 
                 {/* Add Review */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Оставить отзыв</CardTitle>
-                    <CardDescription>
-                      Поделитесь своим опытом использования этого инструмента
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-900 mb-2 block">
-                          Оценка
-                        </label>
-                        <div className="flex space-x-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Icon 
-                              key={i} 
-                              name="Star" 
-                              className="h-6 w-6 text-gray-300 cursor-pointer hover:text-yellow-400"
-                            />
-                          ))}
+                {user && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Оставить отзыв</CardTitle>
+                      <CardDescription>
+                        Поделитесь своим опытом использования этого инструмента
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-900 mb-2 block">
+                            Оценка
+                          </label>
+                          <div className="flex space-x-1">
+                            {[...Array(5)].map((_, i) => (
+                              <Icon 
+                                key={i} 
+                                name="Star" 
+                                className="h-6 w-6 text-gray-300 cursor-pointer hover:text-yellow-400"
+                              />
+                            ))}
+                          </div>
                         </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-900 mb-2 block">
+                            Отзыв
+                          </label>
+                          <Textarea 
+                            placeholder="Расскажите о своем опыте использования..."
+                            rows={4}
+                          />
+                        </div>
+                        <Button className="bg-blue-600 hover:bg-blue-700">
+                          Отправить отзыв
+                        </Button>
                       </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-900 mb-2 block">
-                          Ваше имя
-                        </label>
-                        <Input placeholder="Введите ваше имя" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-900 mb-2 block">
-                          Отзыв
-                        </label>
-                        <Textarea 
-                          placeholder="Расскажите о своем опыте использования..."
-                          rows={4}
-                        />
-                      </div>
-                      <Button className="bg-blue-600 hover:bg-blue-700">
-                        Отправить отзыв
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </TabsContent>
           </Tabs>
